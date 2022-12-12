@@ -1,0 +1,15 @@
+%nprocshared=1
+%mem=1gb
+#p external='MultiState/run-2state.sh'
+!  opt(nomicro)
+!  freq
+
+Two-State calculation (DO SP FIRST.)
+
+0  1
+O
+O 1 r1
+
+r1 1.2
+
+

@@ -1,0 +1,15 @@
+%nprocshared=1
+%mem=1gb
+#p external='MultiState/run-3state.sh'
+!  opt(nomicro)
+!  freq
+
+Three-State calculation (DO SP FIRST.)
+
+0  5
+Fe
+S 1 r1
+
+r1 2.05
+
+

@@ -1,0 +1,572 @@
+\documentclass[UTF8]{ctexart}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{mhchem}
+\usepackage{amsmath}
+\usepackage{geometry}
+\geometry{a4paper,centering,scale=0.8}
+\usepackage[format=hang,font=small,textfont=it]{caption}
+\usepackage[nottoc]{tocbibind}
+
+\usepackage{listings,xcolor}
+\lstset{
+%        extendedchars=false,          % non-English characters
+        lineskip=3pt,
+        basicstyle=\tt\small\color{black},
+        commentstyle=\tt\color{red!60!black},
+        morecomment=[l]\!,
+        keywordstyle=\tt\color{green!70!black},
+        stringstyle=\tt\color{green},
+        showspaces=false,             % underline spaces in the codes
+        showstringspaces=false,       % underline spaces only in a string
+        showtabs=false,               % underline tabs in the codes
+        numberstyle=\tiny\color{black},
+        numbersep=14pt,               % how far the line-numbers are from the code
+        texcl=true,                   % comments in LaTeX if true
+        emph={                        % keywords to be highlighted
+%               subroutine, return,
+%               end
+        },
+        emphstyle=\sf\bfseries\color{red!50!black}\fcolorbox{orange!40!white}{.},
+        numbers=left,
+        rulecolor=\color{blue},
+        frame=single
+%        tabsize=2,                    % set default tab-size to 2 spaces
+%        frame=shadowbox, rulesepcolor=\color{blue}
+}
+
+\newenvironment{myquote}
+{\begin{quote}\kaishu\zihao{-5}}
+{\end{quote}}
+
+\newcommand\degree{^\circ}
+
+\title{\heiti 自旋禁戒反应的近似旋轨耦合处理程序MS@GWEV}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\vspace{10mm}
+\tableofcontents
+
+\newpage
+
+\section{理论}
+
+\subsection{Truhlar的两态混合SO模型哈密顿及能量导数}
+
+旋轨耦合效应在微扰级别（也即Russell-Saunders耦合模型或LS耦合模型\cite{ref1}）可分为一阶旋轨耦合和二阶旋轨耦合，其中前者来自单个自旋轨道态（也称LS态）因自旋多重度导致的自身分裂，例如三重态分裂为三项，五重态分裂为五项；后者来自不同LS态之间的旋轨耦合相互作用。
+一阶旋轨耦合为主的旋量态更多地保留了原LS态的性质，标量方法已经定性正确。只有二阶旋轨耦合起作用的化学反应，才会出现不一样的性质，这是人们更关心的。
+
+若忽略一阶旋轨耦合，由两个LS态（假设自旋多重度分别为$m$、$n$）构成的$m+n$阶自旋轨道矩阵可以简化为以下的2阶有效模型哈密顿矩阵\cite{ref2,ref3}
+\begin{align}\label{tsr-eq01}
+\mathbf{H} =
+\left[\begin{array}{cc}
+    V^m(X) &  \chi \\
+    \chi & V^n(X)
+\end{array}\right],
+\end{align}
+其中，$V^m(X)$，$V^n(X)$是两个自旋态在各自势能面上$X$点位置的能量（以下略去坐标变量$X$），$\chi$是自旋轨道耦合系数，近似可看作是不依赖于$X$的经验参数。Takayanagi和Nakatomi的测试表明，对于铁化合物$\chi$取50--400 cm$^{-1}$以内的任意值对结果影响不大\cite{ref2}，但Yang等建议取231.6 meV（1868 cm$^{-1}$）。对于钨化合物的建议值为302 meV（2436 cm$^{-1}$）\cite{ref3}。
+
+\eqref{tsr-eq01}式可以展开成一元二次方程，有两个根$e_1$、$e_2$，对应两个自旋混合态的能量。我们关心较低一个根的能量$e_1$
+\begin{align}\label{tsr-eq02}
+e_1 = \frac{1}{2}\left(V^m + V^n - \beta\right)  \, \rm .
+\end{align}
+
+由公式\eqref{tsr-eq02}可以很容易推导出$e \equiv e1$关于坐标$X_\mu$的梯度和$X_\mu$、$X_\nu$的Hessian\cite{ref2,ref3}：
+\begin{align}\label{tsr-eq03}
+e_\mu & \equiv \frac{\partial e}{\partial X_\mu} = \frac{1-\alpha}{2}V^m_\mu + \frac{1+\alpha}{2}V^n_\mu  \, \rm , \\ \label{tsr-eq04}
+e_{\mu,\nu} & \equiv \frac{\partial^2 e}{\partial X_\mu\partial X_\nu} = \frac{1-\alpha}{2}V^m_{\mu,\nu} + \frac{1+\alpha}{2}V^n_{\mu,\nu} + \frac{\alpha^2-1}{2\beta}\left(V^m_\mu-V^n_\mu\right)\left(V^m_\nu-V^n_\nu\right)  \, \rm .
+\end{align}
+
+在以上公式中，
+\begin{align}\label{para-eq01}
+\alpha &= \frac{V^m - V^n}{\beta} \, \rm , \\ \label{para-eq02}
+\beta &= \sqrt{(V^m - V^n)^2 + 4\chi^2} \, \rm .
+\end{align}
+
+\subsection{多态混合SO模型哈密顿及能量导数}
+
+如果反应路径涉及两个以上的自旋轨道态，用以上方法可以分段、分组做两态计算，然后拼接在一起，取能量最低路径\cite{ref4}。这种处理并不方便，并且如果两个以上的自旋态在某点附近发生较强的耦合，则以上方法失效。
+为此，我们对一般的有效模型哈密顿矩阵推导出一阶和二阶解析导数。它适用于对于两个、三个或更多自旋态混合的情况。
+
+以三种自旋态的混合为例，SO模型哈密顿为：
+\begin{align}\label{hso0-eq01}
+\mathbf{H} = \left[\begin{array}{ccc}
+    V_1 & \chi_{1,2} & \chi_{1,3} \\
+    \chi_{1,2} & V_2 & \chi_{2,3} \\
+    \chi_{1,3} & \chi_{2,3} & V_3
+\end{array}\right]
+\end{align}
+其中$V_i$是第$i$个自旋态在其势能面上$X$点位置的能量，$\chi_{i,j}$是$i$、$j$两态之间的经验旋轨耦合常数（$i,j$=1，2，3）。
+为了简单，\eqref{hso0-eq01}式做了如下简化：
+\begin{enumerate}
+\item 考虑到两态计算中，计算结果对$\chi$值不是很敏感，因此任意两态之间的$\chi$采用相同的值
+\item 为了确保$\mathbf{Q}_{(\mu)}$矩阵的第一列非奇异（见\eqref{app1-eq05}式），需要避免偶然简并的自旋混合基态，$\mathbf{H}$的非对角元要取负值（对比：在两态计算中，非对角元符号不影响结果，且两个特征值不相等）
+\end{enumerate}
+
+简化后的\eqref{hso0-eq01}式变为\eqref{hso0-eq02}式：
+\begin{align}\label{hso0-eq02}
+\mathbf{H} = \left[\begin{array}{ccc}
+    V_1 & -\chi & -\chi \\
+    -\chi & V_2 & -\chi \\
+    -\chi & -\chi & V_3
+\end{array}\right]
+\end{align}
+其中，$\chi$ > 0。与两态计算相同，在以下推导中忽略$\chi$对坐标的依赖。
+
+$\mathbf{H}$的特征值方程为：
+\begin{align}\label{hso0-eq03}
+\mathbf{H} \, \mathbf{D} = \mathbf{D} \, \mathbf{E}
+\end{align}
+其中特征值矩阵$\mathbf{E}$的对角元包含三个特征值$e_1 < e_2 \leq e_3$，特征矢量矩阵$\mathbf{D}$包含三个列矢量。
+
+\subsubsection{SO模型哈密顿的一阶导数}
+
+$\mathbf{H}$对坐标$X_\mu$求导，得：
+\begin{align}\label{hso1-eq01}
+\mathbf{H}_\mu \, \mathbf{D} + \mathbf{H} \, \mathbf{D}_\mu = \mathbf{D}_\mu \, \mathbf{E} +  \mathbf{D} \, \mathbf{E}_\mu
+\end{align}
+$\mathbf{D}^\dagger$从左侧乘以\eqref{hso1-eq01}式：
+\begin{align}\label{hso1-eq02}
+\mathbf{D}^\dagger \, \mathbf{H}_\mu \, \mathbf{D} + \mathbf{E} \, \mathbf{D}^\dagger \, \mathbf{D}_\mu = \mathbf{D}^\dagger \, \mathbf{D}_\mu \, \mathbf{E} +  \mathbf{E}_\mu
+\end{align}
+
+令$\mathbf{D}_\mu = \mathbf{D} \, \mathbf{Q}_{(\mu)}$，代入\eqref{hso0-eq02}式后得到：
+\begin{align}\label{hso1-eq03}
+\mathbf{E}_\mu = \mathbf{D}^\dagger \, \mathbf{H}_\mu \, \mathbf{D} + \mathbf{E} \, \mathbf{Q}_{(\mu)} - \mathbf{Q}_{(\mu)} \, \mathbf{E}
+\end{align}
+上式等号左侧为对角矩阵；由于$\mathbf{Q}_{(\mu)}$是对角元为0的反对称矩阵（见后），等号右侧后两项的对角元为0，对等号左侧对角元无贡献，因此\eqref{hso1-eq03}式可以简化为
+\begin{align}\label{hso1-eq04}
+\mathbf{E}_\mu = \left[\mathbf{D}^\dagger \, \mathbf{H}_\mu \, \mathbf{D}\right]_{\rm diag}
+\end{align}
+其中下标diag表示取对角项。对于我们关心的自旋混合基态（能量$e_1$简写为$e$），梯度为
+\begin{align}\label{hso1-eq05}
+e_\mu = \mathbf{d}^\dagger \, \mathbf{H}_\mu \, \mathbf{d}
+\end{align}
+其中$\mathbf{d}$是$\mathbf{D}$的第一个列矢量。由于$\chi$不依赖坐标，上式中的$\mathbf{H}_\mu$是对角矩阵，由三个自旋态梯度矢量的第$\mu$个分量构成。
+
+事实上，\eqref{hso1-eq05}式也可通过Hellmann-Feynman定理直接得到。
+
+\subsubsection{SO模型哈密顿的二阶导数}
+
+根据\eqref{hso1-eq01}式，自旋混合基态的梯度需满足以下方程：
+\begin{align}\label{hso2-eq01}
+\mathbf{H}_\mu \, \mathbf{d} + \mathbf{H} \, \mathbf{d}_\mu = e \, \mathbf{d}_\mu + e_\mu \, \mathbf{d}
+\end{align}
+上式对坐标$X_\nu$求导，得：
+\begin{align}\label{hso2-eq02}
+\mathbf{H}_{\mu\nu} \, \mathbf{d} + \mathbf{H}_{\mu} \, \mathbf{d}_{\nu} +
+\mathbf{H}_{\nu} \, \mathbf{d}_\mu + \mathbf{H} \, \mathbf{d}_{\mu\nu}
+= e \, \mathbf{d}_{\mu\nu} + e_{\nu} \, \mathbf{d}_\mu +
+ e_\mu \, \mathbf{d}_{\nu} + e_{\mu\nu} \, \mathbf{d}
+\end{align}
+
+$\mathbf{d}^\dagger$从左侧乘以\eqref{hso2-eq02}式：
+\begin{align}\label{hso2-eq03}
+\mathbf{d}^\dagger \, \mathbf{H}_{\mu\nu} \, \mathbf{d} + \mathbf{d}^\dagger \, \mathbf{H}_{\mu} \, \mathbf{d}_{\nu} +
+\mathbf{d}^\dagger \, \mathbf{H}_{\nu} \, \mathbf{d}_\mu + \mathbf{d}^\dagger \, \mathbf{H} \, \mathbf{d}_{\mu\nu}
+= e \, \mathbf{d}^\dagger \, \mathbf{d}_{\mu\nu} + e_{\nu} \, \mathbf{d}^\dagger \, \mathbf{d}_\mu +
+e_\mu \, \mathbf{d}^\dagger \, \mathbf{d}_{\nu} + e_{\mu\nu}
+\end{align}
+
+在\eqref{hso2-eq03}式中：等号左侧第四项和等号右侧第一项相等（利用\eqref{hso0-eq03}式），可以消去；由于
+$\mathbf{D}^\dagger \, \mathbf{D}_\mu = \mathbf{D}^\dagger \, \mathbf{D} \, \mathbf{Q}_{(\mu)} = \mathbf{Q}_{(\mu)}$，且$\mathbf{Q}_{(\mu)}$矩阵的对角元为0，可知$\mathbf{d}^\dagger \, \mathbf{d}_\mu = 0$。于是\eqref{hso2-eq03}式可化简为：
+\begin{align}\label{hso2-eq04}
+e_{\mu\nu} &= \mathbf{d}^\dagger \, \mathbf{H}_{\mu\nu} \, \mathbf{d} + \mathbf{d}^\dagger \, \mathbf{H}_{\mu} \, \mathbf{d}_{\nu} +
+\mathbf{d}^\dagger \, \mathbf{H}_{\nu} \, \mathbf{d}_\mu \\ \label{hso2-eq05}
+&= \mathbf{d}^\dagger \, \mathbf{H}_{\mu\nu} \, \mathbf{d} + \mathbf{d}^\dagger \, \mathbf{H}_{\mu} \, \mathbf{D} \, \mathbf{q}_{(\nu)} +
+\mathbf{d}^\dagger \, \mathbf{H}_{\nu} \, \mathbf{D} \, \mathbf{q}_{(\mu)}
+\end{align}
+其中，$\mathbf{q}_{(\mu)}$和$\mathbf{q}_{(\nu)}$分别是$\mathbf{Q}_{(\mu)}$和$\mathbf{Q}_{(\nu)}$的第一列，需要额外计算（见下一节）。
+借助\eqref{app1-eq06}式，可知\eqref{hso2-eq05}式等号右侧的第二项和第三项是相等的，因此\eqref{hso2-eq04}式可以简化为
+\begin{align}\label{hso2-eq06}
+e_{\mu\nu} = \mathbf{d}^\dagger \, \mathbf{H}_{\mu\nu} \, \mathbf{d} + 2 \, \mathbf{d}^\dagger \, \mathbf{H}_{\mu} \, \mathbf{D} \, \mathbf{q}_{(\nu)}
+\end{align}
+
+由于$\chi$不依赖坐标，上式中的$\mathbf{H}_{\mu\nu}$、$\mathbf{H}_\mu$、$\mathbf{H}_\nu$都是3$\times$3对角矩阵。
+
+
+\subsubsection{$\mathbf{Q}_{(\mu)}$矩阵的计算}
+
+根据
+\begin{align}\label{app1-eq01}
+\mathbf{D}^\dagger \, \mathbf{D} = \mathbf{I}
+\end{align}
+其中$\mathbf{I}$是单位矩阵，\eqref{app1-eq01}式对坐标$X_\mu$求导得：
+\begin{align}\label{app1-eq02}
+\mathbf{D}_\mu^\dagger \, \mathbf{D} = -\mathbf{D}^\dagger \, \mathbf{D}_\mu
+\end{align}
+代入$\mathbf{D}_\mu = \mathbf{D} \, \mathbf{Q}_{(\mu)}$，得到：
+\begin{align}\label{app1-eq03}
+\mathbf{Q}_{(\mu)} = -\mathbf{Q}_{(\mu)}^\dagger
+\end{align}
+
+可见，$\mathbf{Q}_{(\mu)}$是反对称矩阵，对角元为0。非对角元可通过\eqref{hso1-eq03}式获得：
+\begin{align}\label{app1-eq04}
+\left[\mathbf{Q}_{(\mu)}\right]_{i, j\neq i} = \frac{\left[\mathbf{D}^\dagger \, \mathbf{H}_\mu \, \mathbf{D}\right]_{i, j}}{e_j - e_i}
+\end{align}
+
+在上一节的计算中，仅需要$\mathbf{Q}_{(\mu)}$的第一列（即$\mathbf{q}_{(\mu)}$），其表达式为：
+\begin{align}\label{app1-eq05}
+\left[\mathbf{q}_{(\mu)}\right]_{i\neq 1} = \frac{\left[\mathbf{D}^\dagger \, \mathbf{H}_\mu \, \mathbf{d}\right]_i}{e_1 - e_i}
+\end{align}
+或
+\begin{align}\label{app1-eq06}
+\mathbf{q}_{(\mu)} = \left(e_1 \, \mathbf{I} - \mathbf{E}\right)^{+1}\mathbf{D}^\dagger \, \mathbf{H}_\mu \, \mathbf{d}
+\end{align}
+其中“+1”表示伪逆矩阵。
+
+\subsubsection{处理由更多自旋态构成的自旋混合态}
+
+以上方法也适用于任何数量自旋态的多态反应计算（尽管除了单个过渡原子以外的四态以上体系很少报道），关键是如何构造SO模型哈密顿（\eqref{hso0-eq01}式），从而在Hessian计算中避免\eqref{app1-eq05}式的分母为0。一种方法是把$\mathbf{H}$的非对角元全部取负值（可用同一个值，也可用不同的多个值），可以保证自旋混合基态非简并；另一种方法是不限制$\mathbf{H}$非对角元的正负号，当\eqref{app1-eq05}式的分母接近0时，直接令$1/(e_1 - e_i) = 0$。
+这是因为当两个能量简并时，存在2$\times$2转动矩阵$\mathbf{X}$使二者的特征矢量发生任意混合。由于$\mathbf{X}$存在无穷多可能性，但是却不影响最终结果，因此这部分的$\mathbf{q}_{(\mu)}$矩阵元只有取零值时才能满足要求。
+
+\noindent
+%\textbf{参考文献}
+\begin{thebibliography}{00}
+\bibitem{ref1} H. N. Russell and F. A. Saunders, \textit{New Regularities in the Spectra of the Alkaline Earths}, Astrophys. J. \textbf{61}, 38--69, (1925).
+\bibitem{ref2} T. Takayanagi and T. Nakatomi, \textit{Automated Reaction Path Searches for Spin-Forbidden Reactions}, J. Comput. Chem. \textbf{39}, 1319--1326 (2018).
+\bibitem{ref3} B. Yang, L. Gagliardi, and D. G. Truhlar, \textit{Transition States of Spin-Forbidden Reactions}, Phys. Chem. Chem. Phys. \textbf{20}, 4129--4136 (2018).
+\bibitem{ref4} T. Takayanagi, \textit{Two-state reactivity in the acetylene cyclotrimerization reaction catalyzed by a single atomic transition-metal ion: The case for \ce{V+} and \ce{Fe+}},
+Comput. Theor. Chem. \textbf{1211}, 113682 (2022).
+\end{thebibliography}
+
+\newpage
+
+\section{程序和脚本}
+
+MS@GWEV程序是\textsc{GWEV}套件的模块之一，为近似处理涉及多个自旋态的自旋禁戒反应而开发，用Fortran90语言编写。
+运行方式为\textsc{Gaussian}程序通过MS@GWEV调用其它量子化学程序（包括\textsc{Gaussian}自身）进行计算，
+但是目前MS@GWEV仅支持对\textsc{Gaussian} 16程序的调用。
+
+\subsection{编译MS@GWEV}
+
+进入\verb|MultiState/src|，用\textsl{make}命令调用\textsf{gfortran}进行编译：
+\begin{lstlisting}[language=bash,numbers=none,backgroundcolor=\color{black},basicstyle=\tt\small\color{white},deletekeywords={cd}]
+$ cd MultiState/src/
+$ make
+\end{lstlisting}
+
+如果用\textsf{ifort}+\textsf{MKL}库编译，需要用\verb|Makefile-intel|覆盖\verb|Makefile|，并修改其中的MKL路径\textsf{MKLROOT}。
+此时不需要\verb|blas.f|和\verb|lapack.f|这两个文件。
+
+编译完成后，程序主目录\verb|MultiState|的内容如下：
+\begin{lstlisting}[language=bash,numbers=none,backgroundcolor=\color{black},basicstyle=\tt\small\color{white},
+alsoletter={.-},deletekeywords={cd},
+classoffset=0,morekeywords={run-2state.sh, run-3state.sh, multistate.exe},keywordstyle=\color{green},
+classoffset=1,morekeywords={doc, src, tests},keywordstyle=\color{blue!50!white},
+classoffset=0]
+$ cd ..
+$ ls -l
+total 464
+drwxrwxrwx 1 zouwl zouwl   4096 Nov  1 00:51 doc/
+-rwxrwxrwx 1 zouwl zouwl 455143 Nov  1 00:51 multistate.exe
+-rwxrwxrwx 1 zouwl zouwl    930 Oct 31 11:05 run-2state.sh
+-rwxrwxrwx 1 zouwl zouwl   1130 Oct 31 11:06 run-3state.sh
+drwxrwxrwx 1 zouwl zouwl   4096 Oct 31 17:16 src/
+-rwxrwxrwx 1 zouwl zouwl   3266 Oct 31 18:19 templet-fes
+-rwxrwxrwx 1 zouwl zouwl   2241 Apr  3  2022 templet-o2
+drwxrwxrwx 1 zouwl zouwl   4096 Oct 31 18:30 tests/
+\end{lstlisting}
+其中\verb|run-2state.sh|、\verb|run-3state.sh|、\verb|multistate.exe|需要具有可执行权限。
+
+\subsection{运行MS@GWEV和\textsc{Gaussian} 16的脚本}
+
+以两态计算为例（见文件\verb|MultiState/run-2state.sh|）：
+\begin{lstlisting}[language=bash,morekeywords={module, mkdir}]
+#!/bin/bash
+
+# Gaussian 16
+module load chemsoft/g16c-avx
+export GAUSS_SCRDIR=/tmp/zouwl/GaussianScr
+
+mkdir -p $GAUSS_SCRDIR
+
+export gaussian_ein=$2
+export gaussian_eou=$3
+
+# MS@GWEV
+export CurrDir=`pwd`
+export multistate_dir=$CurrDir/MultiState
+export ms_scrdir=$CurrDir/JOB001
+mkdir -p $ms_scrdir
+export tem_mstate=$multistate_dir/templet-o2
+export inp_state1=$ms_scrdir/state1.gjf
+export inp_state2=$ms_scrdir/state2.gjf
+export fch_state1=$ms_scrdir/state1.fch
+export fch_state2=$ms_scrdir/state2.fch
+
+# generate input files for states 1 and 2
+$multistate_dir/multistate.exe -gen -gin $gaussian_ein -ctp $tem_mstate \
+  -in1 $inp_state1 -in2 $inp_state2
+
+rm -f $fch_state1 $fch_state2
+
+# state 1 calculation
+g16 -fchk=$fch_state1 $inp_state1
+
+# state 2 calculation
+g16 -fchk=$fch_state2 $inp_state2
+
+# write Gaussian's *.EOu file
+$multistate_dir/multistate.exe -mix -chi 400 -gin $gaussian_ein -gou $gaussian_eou \
+  -fc1 $fch_state1 -fc2 $fch_state2
+\end{lstlisting}
+脚本分为5部分：
+\begin{itemize}
+\item 23行以前，是加载\textsc{Gaussian}、MS@GWEV有关的环境变量。
+\item 23-25行，MS@GWEV根据*.EIn（主计算产生）和模板文件（内容见下一节）的信息，产生态1、态2的子计算输入文件。
+\item 27行，删除旧的fchk文件。如果在结构优化和数值频率计算中出现SCF不收敛，fchk文件将不会更新，此时没被删除的旧fchk文件会对计算造成干扰。
+\item 29-33行，运行态1、态2的\textsc{Gaussian}计算，产生fchk文件（通过\textsc{Gaussian} 16新加的命令行选项\verb|-fchk|）。未来可能支持其它量子化学程序。
+\item 35-37行，MS@GWEV根据*.EIn和两个fchk文件中的信息，产生*.EOu文件返回给\textsc{Gaussian}主计算。其中可以通过\verb|-chi|选项设置非默认的旋轨耦合参数$\chi$（单位：cm$^{-1}$）。
+\end{itemize}
+
+对于两个以上自旋态的计算，需要用\verb|-nst|选项指定态的个数，并用\verb|-in3|、\verb|-fc3|等选项为态3指定相应的文件。
+见文件\verb|MultiState/run-3state.sh|。
+
+\subsection{两个自旋态的\textsc{Gaussian}计算模板}
+
+\ce{O2}分子的模板见文件MultiState/templet-o2。
+\begin{lstlisting}[alsoletter={$*},
+morekeywords={$sp1,$grad1,$freq1,$sp2,$grad2,$freq2,*before_geom,*after_geom,*end_of_input}]
+! templet of G16 input: singlet and triplet state of O2 by DFT/TDDFT
+
+! ----------------------------------------------------------
+! Single point energy of the first state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Single point energy of the second state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g td(triplets,root=1)
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the first state
+! ----------------------------------------------------------
+$grad1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g guess=read force
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the second state
+! ----------------------------------------------------------
+$grad2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g guess=read td(triplets,root=1) force
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the first state
+! ----------------------------------------------------------
+$freq1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g guess=read freq
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the second state
+! ----------------------------------------------------------
+$freq2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g guess=read td(triplets,root=1) freq
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+\end{lstlisting}
+注释：
+\begin{itemize}
+\item 以``!''打头的行，是注释行，会被程序略过。
+\item 模板分为6部分，分别以\verb|$sp1|、\verb|$sp2|、\verb|$grad1|、\verb|$grad2|、\verb|$freq1|、\verb|$freq2|作为开头，表示第1或第2个态的单点能、梯度、频率计算部分。不区分大小写。 \\
+    类似地，可以定义第3、第4等态的单点能、梯度、频率计算部分（见\verb|MultiState/templet-fes|）。
+\item 在模板的每一部分中，又包含两块输入，分别用\verb|*before_geom| $\cdots$ \verb|*end_of_input|和\verb|*after_geom| $\cdots$ \verb|*end_of_input|包围。前者提供态1或态2位于分子结构之前的单点/梯度/频率输入内容。后者提供分子结构结束空行之后的输入内容（如基组，赝势），不是必须的。这两块输入的格式与\textsc{Gaussian}的标准输入格式相同。
+\item 在结构优化和频率计算中，为了避免电子组态发生变化导致不收敛或收敛到其它电子态上，建议加上\verb|guess=read|，表示从\verb|%chk|指定的chk文件中读取上一步的波函数作为初猜。 \\
+    \textbf{注意：}这里的chk文件和上一节运行脚本中指定的fchk文件包含相同的信息，但是格式不同，用途也不同，不要混淆。
+\item 本例中，态1是\ce{O2}的闭壳层激发态，通过限制性DFT计算产生，态2是\ce{O2}的开壳层三重基态，在闭壳层激发态DFT的基础上由自旋翻转TDDFT计算产生，当然也可以直接做三重态的UDFT。自旋混合后，得到近似的旋轨耦合基态。
+\end{itemize}
+
+\subsection{在\textsc{Gaussian}中调用运行脚本}
+
+\ce{O2}分子的测试输入见文件\verb|MultiState/tests/test-2state.inp|。
+\begin{lstlisting}[alsoletter={\%\#},morekeywords={\%nprocshared,\%mem,\#p,gb,external}]
+%nprocshared=1
+%mem=1gb
+#p external='MultiState/run-2state.sh'
+!  opt(nomicro)
+!  freq
+
+Two-State calculation (DO SP FIRST.)
+
+0  1
+O
+O 1 r1
+
+r1 1.2
+\end{lstlisting}
+注释：
+\begin{itemize}
+\item 主计算的计算量很小（500+原子体系的频率计算除外），只要单核1GB内存即可。
+\item 用\textsf{External}调用计算脚本。
+\item 计算采用的分子净电荷、自旋多重度已经在计算模板中设定，这里可以用任何\textsc{Gaussian}程序允许的设置。
+\item \textsf{External}默认的结构优化流程是专门为分子力学计算设计的，不适合做量子力学计算，需要给\verb|opt|关键词加上\verb|nomicro|选项。
+\item 由于\verb|opt|和\verb|freq|的模板中用到了\verb|guess=read|，需要先运行一次单点能计算，使产生的chk文件中包含所需的初始轨道。此时可以检查两个自旋态子计算的输出文件，看电子组态、总能量等是否符合要求；对于具有一定对称性的过渡金属体系，\textsc{Gaussian}未必能得到给定自旋的最低态，因此检查波函稳定性也非常重要。然后去掉\verb|opt|（必要的话还有\verb|freq|）之前的注释符号，重新运行。
+\item 可以在主计算中用\verb|%chk|指定chk文件（不要与子计算中的chk文件重名），用于保存混合态的一些重要信息，如优化自旋混合过渡态和反应路径所需的初始Hessian。
+\end{itemize}
+
+\subsection{MS@GWEV程序的参数}
+
+以下两个参数控制计算模式，如果不指定，默认为\verb|-gen|。 \\
+\verb|-gen|：产生自旋态的\textsc{Gaussian}输入文件 \\
+\verb|-mix|：计算自旋混合基态的能量，梯度，和Hessian，并返回给\textsc{Gaussian}主计算
+
+\bigskip
+其它参数有：  \\
+\verb|-nst| \textit{N}：进行混合的自旋态个数，允许值2至9；如果不提供，默认是2 \\
+\verb|-gin| \textit{path/file\_name}：指定\textsc{Gaussian}的*\verb|.EIn|文件名及其路径 \\
+\verb|-gou| \textit{path/file\_name}：指定\textsc{Gaussian}的*\verb|.EOu|文件名及其路径 \\
+\verb|-ctp| \textit{path/file\_name}：指定模板文件名及其路径 \\
+\verb|-in1| \textit{path/file\_name}：指定自旋态1的输入文件名及其路径；类似有\verb|-in2|，\verb|-in3|，等 \\
+\verb|-fc1| \textit{path/file\_name}：指定自旋态1的\verb|fchk|文件名及其路径；类似有\verb|-fc2|，\verb|-fc3|，等 \\
+\verb|-chi| \textit{$\chi$}：经验的旋轨耦合常数（单位cm$^{-1}$），正负无关；如果不指定，默认是400 \\
+\verb|-chs| \textit{$\chi_{1,2}$ $\chi_{1,3}$ $\ldots$}：每对自旋态之间的旋轨耦合常数（单位cm$^{-1}$；注意正负号），共\textit{N}(\textit{N}-1)/2个值 \\
+\verb|-sh1| \textit{$\delta_1$}：指定自旋态1的能级移动（单位cm$^{-1}$）；类似有\verb|-sh2| \textit{$\delta_2$}，\verb|-sh3| \textit{$\delta_3$}，等；如果不指定，默认是0
+
+\bigskip
+以上所有参数都不区分大小写。
+
+\bigskip
+在\verb|-gen|模式下，涉及的参数有：\\
+\verb|-nst|，\verb|-gin|，\verb|-ctp|，\verb|-in1|，$\ldots$，\verb|-in|\textit{N}。
+
+\bigskip
+在\verb|-mix|模式下，涉及的参数有：\\
+\verb|-nst|，\verb|-gin|，\verb|-gou|，\verb|-chi|（或\verb|-chs|），\verb|-fc1|，$\ldots$，\verb|-fc|\textit{N}，\verb|-sh1|，$\ldots$，\verb|-sh|\textit{N}。
+
+
+\newpage
+
+\section{常见问题}
+
+\begin{itemize}
+%\item 存在两个以上的自旋轨道态 \\
+%  如果反应路径涉及两个以上的自旋轨道态，可以分段、分组做两态计算，然后拼接在一起，取能量最低路径。示例见Comput. Theor. Chem. \textbf{1211}, 113682 (2022)。\\
+%  \textbf{本程序不适合处理两个以上自旋轨道态在同一位置交叉的情况！}
+\item 主计算报错为某原子的基组找不到
+
+  实际计算采用的基组在计算模板中定义，而在主计算输入中一般不需要指定基组。此时\textsc{Gaussian}假设主计算采用STO-3G基组，适用于H-Xe原子，
+  若遇到STO-3G不支持的重原子便会报错。解决方法是在主计算输入中指定支持较多元素类型的\textsf{SDD}、\textsf{UGBS}基组，也可通过\textsf{Gen}定义额外的基组信息（不必用\textsf{GenECP}），其中的基组内容可随意写，能通过检测即可。\\
+  \textbf{注意：} 在调用\textsf{External}的情况下，\textsc{Gaussian}无法在多步任务中传递基组。因此\verb|Opt|和\verb|Freq|必须分开计算，或者用\verb|--Link1--|在主计算的单个输入文件中定义多步任务，其中每步计算都要定义基组。
+
+\item 如何估算旋轨耦合参数？
+
+见文献\cite{ref3}的ESI。此外，有些量子化学软件（如\textsc{Molpro}）可以分别打印一阶和二阶旋轨耦合常数。
+对于重原子成键饱和的反应，结果对旋轨耦合参数的设置不敏感。
+
+\end{itemize}
+
+\newpage
+
+\appendix
+
+\section{附录：绘制两态旋轨耦合系数、能量差与组合因子的\textsc{Matlab}代码}
+
+\begin{lstlisting}[language=matlab]
+% chi = 2400 cm-1
+x=2400/219474.63137;
+% dE = abs(Vm - Vn) = 0-2 eV
+de=0:0.1:2;
+%
+% starting calculations
+deh=de/27.2114;
+b=sqrt(deh.*deh+4*x*x);
+a=deh./b;
+c1=(1-a)*0.5;c2=(1+a)*0.5;c3=(a.*a-1)*0.5./b;
+plot(de,c1,'r-o',de,c2,'b-o')
+%plot(de,c3,'b-o')
+\end{lstlisting}
+
+以上\textsc{Matlab}代码若用于\textsc{Scilab}，需删除注释行，或把首列的“\%”替换为“\#”。
+
+\end{document}

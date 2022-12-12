@@ -1,0 +1,442 @@
+\documentclass[UTF8]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{mhchem}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{geometry}
+\geometry{a4paper,centering,scale=0.8}
+\usepackage[format=hang,font=small,textfont=it]{caption}
+\usepackage[nottoc]{tocbibind}
+
+\usepackage{listings,xcolor}
+\lstset{
+%        extendedchars=false,          % non-English characters
+        lineskip=3pt,
+        basicstyle=\tt\small\color{black},
+        commentstyle=\tt\color{red!60!black},
+        morecomment=[l]\!,
+        keywordstyle=\tt\color{green!70!black},
+        stringstyle=\tt\color{green},
+        showspaces=false,             % underline spaces in the codes
+        showstringspaces=false,       % underline spaces only in a string
+        showtabs=false,               % underline tabs in the codes
+        numberstyle=\tiny\color{black},
+        numbersep=14pt,               % how far the line-numbers are from the code
+        texcl=true,                   % comments in LaTeX if true
+        emph={                        % keywords to be highlighted
+%               subroutine, return,
+%               end
+        },
+        emphstyle=\sf\bfseries\color{red!50!black}\fcolorbox{orange!40!white}{.},
+        numbers=left,
+        rulecolor=\color{blue},
+        frame=single
+%        tabsize=2,                    % set default tab-size to 2 spaces
+%        frame=shadowbox, rulesepcolor=\color{blue}
+}
+
+\newcommand\degree{^\circ}
+
+\title{MS@GWEV: An Interface Program of Approximate Spin-Orbit Coupling for Spin-Forbidden Reactions}
+
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\vspace{10mm}
+\tableofcontents
+
+\newpage
+
+The MS@GWEV program is a module of the in-house software \textsc{GWEV Suite} developed in our group.
+It was written in Fortran 90 and interfaced to \textsc{Gaussian} 16 (through the keyword \textsf{External}) to calculate spin-forbidden reactions involving multiple spin states.
+
+\section{Installation}
+
+If the \textsf{gfortran} compiler has been installed, MS@GWEV may be built by the \textsl{make} command in the \verb|MultiState/src| directory,
+\begin{lstlisting}[language=bash,numbers=none,backgroundcolor=\color{black},basicstyle=\tt\small\color{white},deletekeywords={cd}]
+$ cd MultiState/src/
+$ make
+\end{lstlisting}
+
+If the \textsf{ifort} compiler with the \textsf{MKL} library is preferred, the user may replace \verb|Makefile| by \verb|Makefile-intel| and modify \textsf{MKLROOT} therein.
+
+After the installation, the user will see the following contents in the \verb|MultiState| main directory:
+\begin{lstlisting}[language=bash,numbers=none,backgroundcolor=\color{black},basicstyle=\tt\small\color{white},
+alsoletter={.-},deletekeywords={cd},
+classoffset=0,morekeywords={run-2state.sh, run-3state.sh, multistate.exe},keywordstyle=\color{green},
+classoffset=1,morekeywords={doc, src, tests},keywordstyle=\color{blue!50!white},
+classoffset=0]
+$ cd ..
+$ ls -l
+total 464
+drwxrwxrwx 1 zouwl zouwl   4096 Nov  1 00:51 doc/
+-rwxrwxrwx 1 zouwl zouwl 455143 Nov  1 00:51 multistate.exe
+-rwxrwxrwx 1 zouwl zouwl    930 Oct 31 11:05 run-2state.sh
+-rwxrwxrwx 1 zouwl zouwl   1130 Oct 31 11:06 run-3state.sh
+drwxrwxrwx 1 zouwl zouwl   4096 Oct 31 17:16 src/
+-rwxrwxrwx 1 zouwl zouwl   3266 Oct 31 18:19 templet-fes
+-rwxrwxrwx 1 zouwl zouwl   2241 Apr  3  2022 templet-o2
+drwxrwxrwx 1 zouwl zouwl   4096 Oct 31 18:30 tests/
+\end{lstlisting}
+where \verb|run-2state.sh|, \verb|run-3state.sh|, and \verb|multistate.exe| have executable permissions.
+
+\section{Script to run MS@GWEV}
+
+The following sample script (\textit{i.e.} the script file \verb|MultiState/run-2state.sh|) calculates the mixed-spin ground state from two spin states.
+The two spin states are computed by \textsc{Gaussian} 16, whereas the other quantum chemistry programs may be supported in the future.
+For the calculation of three spin states, please refer to the script \verb|MultiState/run-3state.sh|.
+
+\begin{lstlisting}[language=bash,morekeywords={module, mkdir}]
+#!/bin/bash
+
+# Gaussian 16
+module load chemsoft/g16c-avx
+export GAUSS_SCRDIR=/tmp/zouwl/GaussianScr
+
+mkdir -p $GAUSS_SCRDIR
+
+export gaussian_ein=$2
+export gaussian_eou=$3
+
+# MS@GWEV
+export CurrDir=`pwd`
+export multistate_dir=$CurrDir/MultiState
+export ms_scrdir=$CurrDir/JOB001
+mkdir -p $ms_scrdir
+export tem_mstate=$multistate_dir/templet-o2
+export inp_state1=$ms_scrdir/state1.gjf
+export inp_state2=$ms_scrdir/state2.gjf
+export fch_state1=$ms_scrdir/state1.fch
+export fch_state2=$ms_scrdir/state2.fch
+
+# generate input files for states 1 and 2
+$multistate_dir/multistate.exe -gen -gin $gaussian_ein -ctp $tem_mstate \
+  -in1 $inp_state1 -in2 $inp_state2
+
+rm -f $fch_state1 $fch_state2
+
+# state 1 calculation
+g16 -fchk=$fch_state1 $inp_state1
+
+# state 2 calculation
+g16 -fchk=$fch_state2 $inp_state2
+
+# write Gaussian's *.EOu file
+$multistate_dir/multistate.exe -mix -chi 400 -gin $gaussian_ein -gou $gaussian_eou \
+  -fc1 $fch_state1 -fc2 $fch_state2
+\end{lstlisting}
+
+The script contains five parts:
+\begin{itemize}
+\item Before the line 23, the environment variables of \textsc{Gaussian} and MS@GWEV are loaded.
+\item Lines 23 to 25, MS@GWEV generates input files of the two spin states according to the *.EIn (from the master calculation) and template (see the next section) files.
+\item Line 27, delete the old fchk files. If SCF does not converge during geometry optimization or numerical frequency calculations, a new fchk file will not be saved. In this case the old fchk file if not deleted may lead to strange results.
+\item Lines 29 to 33, the two spin states are calculated by \textsc{Gaussian}, and two fchk files will be saved through the new command line option \verb|-fchk| of \textsc{Gaussian} 16.
+\item Lines 35 to 37, MS@GWEV calculates energy, gradients, and possible Hessians of the mixed-spin ground state by using the data from *.EIn and two fchk files, and returns them to the \textsc{Gaussian} master calculation through the data file *.EOu.
+    The non-default empirical SOC constant $\chi$ may be set by the option \verb|-chi|.
+\end{itemize}
+
+\section{\textsc{Gaussian} 16 Template with Two Spin States}
+
+This is a \textsc{Gaussian} 16 template to do two-state calculation of \ce{O2} (see MultiState/templet-o2).
+\begin{lstlisting}[alsoletter={$*},
+morekeywords={$sp1,$grad1,$freq1,$sp2,$grad2,$freq2,*before_geom,*after_geom,*end_of_input}]
+! templet of G16 input: singlet and triplet state of O2 by DFT/TDDFT
+
+! ----------------------------------------------------------
+! Single point energy of the first state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Single point energy of the second state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g td(triplets,root=1)
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the first state
+! ----------------------------------------------------------
+$grad1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g guess=read force
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the second state
+! ----------------------------------------------------------
+$grad2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g guess=read td(triplets,root=1) force
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the first state
+! ----------------------------------------------------------
+$freq1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g guess=read freq
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the second state
+! ----------------------------------------------------------
+$freq2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g guess=read td(triplets,root=1) freq
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+\end{lstlisting}
+
+A few comments on the template:
+\begin{itemize}
+\item A line beginning with an exclamation mark (!) is a comment line, which is ignored by MS@GWEV.
+\item The template has six parts beginning with the keywords \verb|$sp1|, \verb|$sp2|, \verb|$grad1|, \verb|$grad2|, \verb|$freq1|, and \verb|$freq2| (case insensitive),
+    indicating the sing-point energy, gradient, and vibrational frequency calculation sections of the first and the second spin states, respectively.
+    Similarly, the keywords like \verb|$sp3| and \verb|$grad4| may be defined for the other states (see \verb|MultiState/templet-fes|).
+\item In each part of the template, there are two input fields, enclosed in the opening-closing tags \verb|*before_geom| $\cdots$ \verb|*end_of_input| and \verb|*after_geom| $\cdots$ \verb|*end_of_input|, respectively.
+    The text content in the former is the \textsc{Gaussian} input stream for sing-point energy, gradient, or vibrational frequency calculation of a spin state before the molecular geometry,
+    and in the latter is the optional \textsc{Gaussian} input stream after the molecular geometry, such as basis sets and pseudo-potentials.
+\item In the gradient and vibrational frequency calculations, the keyword \verb|guess=read| is suggested to use, which reads wavefunction of previous step from the chk file (defined via the \verb|%chk| command; \textbf{Don't confuse it with the fchk file in the script!}) as initial guess.
+\item In this example, the spin state 1 is a closed-shell excited state of \ce{O2} computed by restricted DFT, whereas the spin state 2 is the open-shell triplet ground state of \ce{O2}, computed by spin-flip TDDFT (of course unrestricted DFT with the spin multiplicity being 3 is also available).
+\end{itemize}
+
+\section{Calling the script in \textsc{Gaussian} master calculation}
+
+This is the test input of \ce{O2} (see \verb|MultiState/tests/test-2state.inp|).
+\begin{lstlisting}[alsoletter={\%\#},morekeywords={\%nprocshared,\%mem,\#p,gb,external}]
+%nprocshared=1
+%mem=1gb
+#p external='MultiState/run-2state.sh'
+!  opt(nomicro)
+!  freq
+
+Two-State calculation (DO SP FIRST.)
+
+0  1
+O
+O 1 r1
+
+r1 1.2
+\end{lstlisting}
+
+A few comments on the input:
+\begin{itemize}
+\item The master calculation does not consume too much memory and CPU resources (except the frequency calculation with more than 500 atoms),
+so one processor with 1 GB of memory is usually enough.
+\item The keyword \textsf{External} is used to call the script.
+\item Since the charge and spin multiplicity have been set in the template file, here they can be any accepted values.
+\item The default optimization procedure of \textsf{External} is designed for MM calculations but is not suitable for QM calculations, so the option \verb|nomicro| is needed for \verb|opt|.
+\item Since \verb|guess=read| is specified in the template file for \verb|opt| and \verb|freq| calculations, a single-point calculation
+    has to be performed first to save wavefunctions into the checkpoint files.
+    After the single-point calculation, the user may check electronic configurations, total energies, and populations in the output files of the two spin states; for transition-metal systems with some symmetry, it is highly suggested to check the stabilities of wavefunction since \textsc{Gaussian}
+    may not converge to the lowest solution correctly.
+    Then the user may remove the exclamation mark symbol before \verb|opt| and \verb|freq| and redo the calculation.
+\item A checkpoint file may be specified by \verb|%chk| in the master calculation to save some important data of the mixed-spin ground state,
+    \textit{e.g.} initial Hessians for subsequent TS and IRC optimization.
+\end{itemize}
+
+\section{Options of MS@GWEV}
+
+\subsection{Options to Control Operating Mode}
+
+The following options are case insensitive.
+
+\begin{itemize}[leftmargin= 0 pt]
+\item \verb|-gen|
+
+This mode generates \textsc{Gaussian} input files of spin states, which is the default.
+The options involved are \verb|-nst|, \verb|-gin|, \verb|-ctp|, \verb|-in1|, $\ldots$, \verb|-in|\textit{N}.
+
+\item \verb|-mix|
+
+This mode computes energy, gradient array, and Hessian matrix of the mixed-spin ground state, and returns them to the \textsc{Gaussian} master calculation.
+The options involved are \verb|-nst|, \verb|-gin|, \verb|-gou|, \verb|-chi| (or \verb|-chs|), \verb|-fc1|, $\ldots$, \verb|-fc|\textit{N}, \verb|-sh1|, $\ldots$, \verb|-sh|\textit{N}.
+
+\end{itemize}
+
+\subsection{Other Options}
+
+\begin{itemize}[leftmargin= 0 pt]
+\item \verb|-nst| \textit{N}
+
+This option specifies the number of spin electronic states to be mixed, which is between 2 and 9.
+ The default is 2 if \verb|-nst| is not specified.
+
+\item \verb|-gin| \textit{path/file\_name}
+
+This option specifies the path and name of \textsc{Gaussian}'s *\verb|.EIn| file.
+
+\item \verb|-gou| \textit{path/file\_name}
+
+This option specifies the path and name of \textsc{Gaussian}'s *\verb|.EOu| file.
+
+\item \verb|-ctp| \textit{path/file\_name}
+
+This option specifies the path and name of the template file.
+
+\item \verb|-in1| \textit{path/file\_name} \\
+ \verb|-in2| \textit{path/file\_name} \\
+ $\ldots$ \\
+ \verb|-in|\textit{N} \textit{path/file\_name}
+
+These options specify the paths and names of the input files for spin states 1, 2, $\ldots$, $N$.
+
+\item \verb|-fc1| \textit{path/file\_name} \\
+ \verb|-fc2| \textit{path/file\_name} \\
+ $\ldots$ \\
+ \verb|-fc|\textit{N} \textit{path/file\_name}
+
+These options specify the paths and names of the \verb|fchk| files for spin states 1, 2, $\ldots$, $N$.
+
+\item \verb|-chi| \textit{$\chi$}
+
+This option specifies the empirical SO constant (in cm$^{-1}$). The default is 400 cm$^{-1}$ if \verb|-chi| is not specified.
+Taking three spin states as an example, the constructed model SO Hamiltonian is
+\begin{align}\label{hso0-eq1}
+\mathbf{H} = \left[\begin{array}{ccc}
+    V_1 & -|\chi| & -|\chi| \\
+    -|\chi| & V_2 & -|\chi| \\
+    -|\chi| & -|\chi| & V_3
+\end{array}\right]
+\end{align}
+
+\item \verb|-chs| \textit{$\chi_{1,2}$ $\chi_{1,3}$ $\ldots$ $\chi_{2,3}$ $\ldots$}
+
+This option must appear after \verb|-nst| \textit{N}, which specifies the empirical SO constant (in cm$^{-1}$) of each pair of spin states, and totally \textit{N}(\textit{N}-1)/2
+values should be provided.
+Taking three spin states as an example, the constructed model SO Hamiltonian is
+\begin{align}\label{hso0-eq2}
+\mathbf{H} = \left[\begin{array}{ccc}
+    V_1 & \chi_{1,2} & \chi_{1,3} \\
+    \chi_{1,2} & V_2 & \chi_{2,3} \\
+    \chi_{1,3} & \chi_{2,3} & V_3
+\end{array}\right]
+\end{align}
+
+\item \verb|-sh1| \textit{$\delta_1$} \\
+ \verb|-sh2| \textit{$\delta_2$} \\
+ $\ldots$ \\
+ \verb|-sh|\textit{N} \textit{$\delta_N$}
+
+These options specify energy shifts (in cm$^{-1}$) of spin states 1, 2, $\ldots$, $N$.
+The default values are all 0 cm$^{-1}$ if they are not specified.
+Taking three spin states as an example, the modified diagonal elements in the model SO Hamiltonian are
+\begin{align}\label{hso0-eq2}
+\mathbf{H} = \left[\begin{array}{ccc}
+    V_1 + \delta_1 & {} & {} \\
+    {} & V_2 + \delta_2 & {} \\
+    {} & {} & V_3 + \delta_3
+\end{array}\right] \> .
+\end{align}
+
+\end{itemize}
+
+
+\section{Frequently Asked Questions}
+
+\begin{itemize}
+\item \textbf{The \textsc{Gaussian} master calculation complains that the basis set is not available for an atom.}
+
+The actual basis set used in the calculation is defined in the template file, whereas in the master \textsc{Gaussian} input file
+the basis set is usually not needed to specify. In this case \textsc{Gaussian} assumes that the \textsf{STO-3G} basis set is used,
+which supports the atoms H-Xe. Thus if there are heavier atoms than Xe, \textsc{Gaussian} reports an error.
+
+To solve this problem, one may specify either the \textsf{SDD} or \textsf{UGBS} basis set, which support more atoms,
+or custom basis functions through the \textsf{Gen} keyword (\textsf{GenECP} is not necessary).
+
+Please note that, in the case of \textsf{External} calculation mode, the non-default basis set in the master input
+cannot be passed on to the subsequent steps in a multiple-step \textsc{Gaussian} job.
+Thus \textsf{Opt} and \textsf{Freq} have to be computed separately; they may also be combined in a single master input
+through \verb|--Link1--|.
+
+\item \textbf{How to estimate the SOC constant?}
+
+Please refer to the ESI of \textbf{Phys. Chem. Chem. Phys.} 20, 4129, 2018.
+Some quantum chemistry programs (\textit{e.g.} \textsc{Molpro}) can print the first- and the second-order SOC constants separately.
+For the reaction where the heavy atom has saturated chemical bonds, the results are not sensitive to the SOC constant.
+
+\end{itemize}
+
+\end{document}

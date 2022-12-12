@@ -1,0 +1,184 @@
+! templet of G16 input: three-state spin-mixing calculation of FeS by DFT
+
+! ----------------------------------------------------------
+! Single point energy of the first state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s3
+#p b3lyp/lanl2dz
+
+Title: triplet state of FeS
+
+0 3
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Single point energy of the second state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s5
+#p b3lyp/lanl2dz
+
+Title: quintet state of FeS
+
+0 5
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Single point energy of the third state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp3
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s7
+#p b3lyp/lanl2dz
+
+Title: septet state of FeS
+
+0 7
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the first state
+! ----------------------------------------------------------
+$grad1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s3
+#p b3lyp/lanl2dz guess=read force
+
+Title: triplet state of FeS
+
+0 3
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the second state
+! ----------------------------------------------------------
+$grad2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s5
+#p b3lyp/lanl2dz guess=read force
+
+Title: quintet state of FeS
+
+0 5
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the third state
+! ----------------------------------------------------------
+$grad3
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s7
+#p b3lyp/lanl2dz guess=read force
+
+Title: septet state of FeS
+
+0 7
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the first state
+! ----------------------------------------------------------
+$freq1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s3
+#p b3lyp/lanl2dz guess=read freq
+
+Title: triplet state of FeS
+
+0 3
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the second state
+! ----------------------------------------------------------
+$freq2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s5
+#p b3lyp/lanl2dz guess=read freq
+
+Title: quintet state of FeS
+
+0 5
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the third state
+! ----------------------------------------------------------
+$freq3
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=fes-s7
+#p b3lyp/lanl2dz guess=read freq
+
+Title: septet state of FeS
+
+0 7
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+
+

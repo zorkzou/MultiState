@@ -1,0 +1,124 @@
+! templet of G16 input: singlet and triplet spin-mixing calculation of O2 by DFT/TDDFT
+
+! ----------------------------------------------------------
+! Single point energy of the first state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Single point energy of the second state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g td(triplets,root=1)
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the first state
+! ----------------------------------------------------------
+$grad1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g guess=read force
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the second state
+! ----------------------------------------------------------
+$grad2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g guess=read td(triplets,root=1) force
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the first state
+! ----------------------------------------------------------
+$freq1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s1
+#p b3lyp/3-21g guess=read freq
+
+Title: singlet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the second state
+! ----------------------------------------------------------
+$freq2
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=o2-s2
+#p b3lyp/3-21g guess=read td(triplets,root=1) freq
+
+Title: triplet state of O2
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+
+
