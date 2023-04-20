@@ -965,11 +965,12 @@ Subroutine RdEIn_XYZ(iGIN,natom,natall,IZA,XYZ,Llist)
       i1 = i1 + 1
       IZA(i1) = iza1
       XYZ(:,i1) = Scr
-      Llist(i1) = 1
+      Llist(i) = 1
     end if
   end do
 
   deallocate(Scr)
+
   if(i1 /= natom) call XError("Wrong natom in *.EIn.")
 
   Return
