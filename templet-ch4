@@ -1,4 +1,4 @@
-! templet of G16 input: singlet and triplet spin-mixing calculation of CH4 by DFT
+! templet of G16 input: CH4 by DFT
 
 ! ----------------------------------------------------------
 ! Single point energy of the first state
