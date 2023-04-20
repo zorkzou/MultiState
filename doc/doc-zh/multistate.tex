@@ -3,6 +3,7 @@
 \usepackage{float}
 \usepackage{mhchem}
 \usepackage{amsmath}
+\usepackage{enumitem}
 \usepackage{geometry}
 \geometry{a4paper,centering,scale=0.8}
 \usepackage[format=hang,font=small,textfont=it]{caption}
@@ -497,21 +498,26 @@ r1 1.2
 
 \subsection{MS@GWEV程序的参数}
 
-以下两个参数控制计算模式，如果不指定，默认为\verb|-gen|。 \\
-\verb|-gen|：产生自旋态的\textsc{Gaussian}输入文件 \\
-\verb|-mix|：计算自旋混合基态的能量，梯度，和Hessian，并返回给\textsc{Gaussian}主计算
+以下两个参数控制计算模式，如果不指定，默认为\verb|-gen|。
+\begin{itemize}[leftmargin= 0 pt]
+\item \verb|-gen|：产生自旋态的\textsc{Gaussian}输入文件
+\item \verb|-mix|：计算自旋混合基态的能量，梯度，和Hessian，并返回给\textsc{Gaussian}主计算
+\end{itemize}
 
 \bigskip
-其它参数有：  \\
-\verb|-nst| \textit{N}：进行混合的自旋态个数，允许值2至9；如果不提供，默认是2 \\
-\verb|-gin| \textit{path/file\_name}：指定\textsc{Gaussian}的*\verb|.EIn|文件名及其路径 \\
-\verb|-gou| \textit{path/file\_name}：指定\textsc{Gaussian}的*\verb|.EOu|文件名及其路径 \\
-\verb|-ctp| \textit{path/file\_name}：指定模板文件名及其路径 \\
-\verb|-in1| \textit{path/file\_name}：指定自旋态1的输入文件名及其路径；类似有\verb|-in2|，\verb|-in3|，等 \\
-\verb|-fc1| \textit{path/file\_name}：指定自旋态1的\verb|fchk|文件名及其路径；类似有\verb|-fc2|，\verb|-fc3|，等 \\
-\verb|-chi| \textit{$\chi$}：经验的旋轨耦合常数（单位cm$^{-1}$），正负无关；如果不指定，默认是400 \\
-\verb|-chs| \textit{$\chi_{1,2}$ $\chi_{1,3}$ $\ldots$}：每对自旋态之间的旋轨耦合常数（单位cm$^{-1}$；注意正负号），共\textit{N}(\textit{N}-1)/2个值 \\
-\verb|-sh1| \textit{$\delta_1$}：指定自旋态1的能级移动（单位cm$^{-1}$）；类似有\verb|-sh2| \textit{$\delta_2$}，\verb|-sh3| \textit{$\delta_3$}，等；如果不指定，默认是0
+其它参数有：
+\begin{itemize}[leftmargin= 0 pt]
+\item \verb|-nst| \textit{N}：进行混合的自旋态个数，允许值1至9；如果不提供，默认是2。
+\item \verb|-gin| \textit{path/file\_name}：指定\textsc{Gaussian}的*\verb|.EIn|文件名及其路径
+\item \verb|-gou| \textit{path/file\_name}：指定\textsc{Gaussian}的*\verb|.EOu|文件名及其路径
+\item \verb|-ctp| \textit{path/file\_name}：指定模板文件名及其路径
+\item \verb|-in1| \textit{path/file\_name}：指定自旋态1的输入文件名及其路径；类似有\verb|-in2|，\verb|-in3|，等
+\item \verb|-fc1| \textit{path/file\_name}：指定自旋态1的\verb|fchk|文件名及其路径；类似有\verb|-fc2|，\verb|-fc3|，等
+\item \verb|-chi| \textit{$\chi$}：经验的旋轨耦合常数（单位cm$^{-1}$），正负无关；如果不指定，默认是400
+\item \verb|-chs| \textit{$\chi_{1,2}$ $\chi_{1,3}$ $\ldots$}：每对自旋态之间的旋轨耦合常数（单位cm$^{-1}$；注意正负号），
+  共\textit{N}(\textit{N}-1)/2个值。这个参数必须出现在\verb|-nst| \textit{N}之后。
+\item \verb|-sh1| \textit{$\delta_1$}：指定自旋态1的能级移动（单位cm$^{-1}$）；类似有\verb|-sh2| \textit{$\delta_2$}，\verb|-sh3| \textit{$\delta_3$}，等；如果不指定，默认是0
+\end{itemize}
 
 \bigskip
 以上所有参数都不区分大小写。
@@ -524,6 +530,8 @@ r1 1.2
 在\verb|-mix|模式下，涉及的参数有：\\
 \verb|-nst|，\verb|-gin|，\verb|-gou|，\verb|-chi|（或\verb|-chs|），\verb|-fc1|，$\ldots$，\verb|-fc|\textit{N}，\verb|-sh1|，$\ldots$，\verb|-sh|\textit{N}。
 
+\bigskip
+当\textit{N}=1时，\textsc{Gaussian}调用自己，执行常规的单自旋态计算。此时的\verb|-chi|，\verb|-chs|，\verb|-sh1|无效。
 
 \newpage
 
@@ -543,6 +551,10 @@ r1 1.2
 
 见文献\cite{ref3}的ESI。此外，有些量子化学软件（如\textsc{Molpro}）可以分别打印一阶和二阶旋轨耦合常数。
 对于重原子成键饱和的反应，结果对旋轨耦合参数的设置不敏感。
+
+\item \textsf{ONIOM}方法调用MS@GWEV做结构优化或振动频率计算，结果是错的。
+
+在\textsc{Gaussian}输入文件中，所有High层的原子必须放在坐标的开头。接下来是Medium层原子（如果存在的话），最后是Low层原子。
 
 \end{itemize}
 

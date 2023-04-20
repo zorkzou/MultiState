@@ -1,0 +1,64 @@
+! templet of G16 input: singlet and triplet spin-mixing calculation of CH4 by DFT
+
+! ----------------------------------------------------------
+! Single point energy of the first state
+!
+! This step is used to generate a checkpoint file, so you
+! must do SP calculation first.
+! ----------------------------------------------------------
+$sp1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=ch4-s1
+#p b3lyp/6-31g
+
+Title: CH4
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Gradients of the first state
+! ----------------------------------------------------------
+$grad1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=ch4-s1
+#p b3lyp/6-31g guess=read force
+
+Title: CH4
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+! ----------------------------------------------------------
+! Hessians of the first state
+! ----------------------------------------------------------
+$freq1
+  *before_geom
+%mem=8GB
+%nprocshared=4
+%chk=ch4-s1
+#p b3lyp/6-31g guess=read freq
+
+Title: CH4
+
+0 1
+  *end_of_input
+
+  *after_geom
+
+  *end_of_input
+
+
+

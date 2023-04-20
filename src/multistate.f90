@@ -7,13 +7,16 @@
 !
 ! Dec. 01, 2022.
 !
+! Mar. 21, 2023. Bug fix. The default chi was in au by mistake.
+! Apr. 20, 2023. Calculation with -nst 1 may be performed; Bug fix for ONIOM by G16.c.
+!
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 program MultiState
   implicit real(kind=8) (a-h,o-z)
   integer,parameter :: iGIN=41, iGOU=42, iCTP=50, MaxStat=9
   character*200 :: ctmp, tag
   logical :: ifchs
-  allocatable   :: iINP(:), iFCH(:), SO_chs(:), SO_dlt(:), IZAG(:), XYZG(:)
+  allocatable   :: iINP(:), iFCH(:), SO_chs(:), SO_dlt(:), IZAG(:), XYZG(:), Llist(:)
 
   allocate(iINP(MaxStat), iFCH(MaxStat), SO_chs(MaxStat*(MaxStat-1)/2), SO_dlt(MaxStat))
 
@@ -35,9 +38,9 @@ program MultiState
 !---------------------------------------------------------------------------------------------------------------------------------
 ! 3. read *.EIn
 !---------------------------------------------------------------------------------------------------------------------------------
-  call RdEIn_Line1(iGIN,natom,nder)
-  allocate(IZAG(natom), XYZG(3*natom))
-  call RdEIn_XYZ(iGIN,natom,IZAG,XYZG)
+  call RdEIn_Line1(iGIN,natom,natall,nder)
+  allocate(IZAG(natom), XYZG(3*natom), Llist(natall))
+  call RdEIn_XYZ(iGIN,natom,natall,IZAG,XYZG,Llist)
 
 !---------------------------------------------------------------------------------------------------------------------------------
 ! 4.
@@ -47,10 +50,10 @@ program MultiState
   if(Imode == 0) then
     call GenGjf(iCTP,iINP,NStat,natom,nder,IZAG,XYZG,ctmp,tag)
   else
-    call GenEou(iGOU,iFCH,NStat,natom,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,ctmp,tag)
+    call GenEou(iGOU,iFCH,NStat,natom,natall,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,Llist,ctmp,tag)
   end if
 
-  deallocate(iINP, iFCH, SO_chs, SO_dlt, IZAG, XYZG)
+  deallocate(iINP, iFCH, SO_chs, SO_dlt, IZAG, XYZG, Llist)
 
 end program MultiState
 
@@ -76,16 +79,20 @@ End Subroutine GenGjf
 ! Compute energy and energy derivatives of the mixed-spin ground state, and print Gaussian's *.EOu file
 !
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Subroutine GenEou(iGOU,iFCH,NStat,natom,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,ctmp,tag)
+Subroutine GenEou(iGOU,iFCH,NStat,natom,natall,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,Llist,ctmp,tag)
   Implicit Real*8(A-H,O-Z)
   real(kind=8),parameter :: con_cm2au = 219474.63137d0
-  dimension :: iFCH(NStat), XYZG(3*natom), SO_chs(*), SO_dlt(NStat)
+  dimension :: iFCH(NStat), XYZG(3*natom), SO_chs(*), SO_dlt(NStat), Llist(natall)
   character*200 :: ctmp, tag
   logical :: ifchs, lrot
   allocatable   :: lrot(:), XYZF(:), ENEi(:), GRDi(:,:), FCMi(:,:), HMAT(:,:), DMAT(:,:), EMIX(:), GRDm(:), FCMm(:), Rmat(:),   &
     Scr1(:), Scr2(:)
 
-  write(*,"(1x,32('='),/,' Multiple-State Spin-Mixing Model',/,1x,32('='))")
+  if(NStat == 1) then
+    write(*,"(1x,29('='),/,' Single Spin State Calculation',/,1x,29('='))")
+  else
+    write(*,"(1x,32('='),/,' Multiple-State Spin-Mixing Model',/,1x,32('='))")
+  end if
 
 !---------------------------------------------------------------------------------------------------------------------------------
 ! set array length
@@ -151,20 +158,22 @@ Subroutine GenEou(iGOU,iFCH,NStat,natom,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,ctm
 ! Construct SO model Hamiltonian, and do diagonalization.
 !---------------------------------------------------------------------------------------------------------------------------------
   write(*,"(' Number of spin states: ',i2)") NStat
-  if(ifchs) then
-    ii = 0
-    do i = 1, NStat-1
-      do j = i+1, NStat
-        ii = ii + 1
-        HMAT(i,j) = SO_chs(ii)
-        HMAT(j,i) = SO_chs(ii)
+  if(NStat > 1) then
+    if(ifchs) then
+      ii = 0
+      do i = 1, NStat-1
+        do j = i+1, NStat
+          ii = ii + 1
+          HMAT(i,j) = SO_chs(ii)
+          HMAT(j,i) = SO_chs(ii)
+        end do
       end do
-    end do
-    write(*,"(' chi values (in cm^-1):')")
-    write(*,"(5(4x,f8.1))") con_cm2au*SO_chs(1:ii)
-  else
-    HMAT = -SO_chi
-    write(*,"(' chi (in cm^-1): ',/,4x,f8.1)") con_cm2au*SO_chi
+      write(*,"(' chi values (in cm^-1):')")
+      write(*,"(5(4x,f8.1))") con_cm2au*SO_chs(1:ii)
+    else
+      HMAT = -SO_chi
+      write(*,"(' chi (in cm^-1): ',/,4x,f8.1)") con_cm2au*SO_chi
+    end if
   end if
 
   write(*,"(' Energies of spin states:',/,1x,47('-'),/,' No.',14x,'E(calc.)',12x,'E(shifted)',/,1x,47('-'))")
@@ -174,16 +183,21 @@ Subroutine GenEou(iGOU,iFCH,NStat,natom,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,ctm
   end do
   write(*,"(1x,47('-'))")
 
-  call DCopy(NStat*NStat,HMAT,1,DMAT,1)
-  call DSYEV('V','L', NStat, DMAT, NStat, EMIX, Scr1, lscr1, ist)
-    if(ist /= 0) call XError("Error in sub. main: diagnolization failed.")
-
-  write(*,"(' Energies and weights of mixed-spin states:',/,1x,66('-'),/,' No.',16x,'E(mix)',11x,'Weights',/,1x,66('-'))")
-  do i = 1, NStat
-    write(*,"(i4,f22.9,5x,4(2x,f6.1,'%'))") i, EMIX(i), (DMAT(j,i)*DMAT(j,i)*1.0d2, j=1,min(NStat,4))
-    if(NStat > 4) write (*,"(30x,4(2x,f6.1,'%'))")      (DMAT(j,i)*DMAT(j,i)*1.0d2, j=5,NStat)
-  end do
-  write(*,"(1x,66('-'))")
+  if(NStat == 1) then
+    EMIX(1) = ENEi(1)
+    DMAT(1,1) = 1.0d0
+  else
+    call DCopy(NStat*NStat,HMAT,1,DMAT,1)
+    call DSYEV('V','L', NStat, DMAT, NStat, EMIX, Scr1, lscr1, ist)
+      if(ist /= 0) call XError("Error in sub. main: diagnolization failed.")
+    
+    write(*,"(' Energies and weights of mixed-spin states:',/,1x,66('-'),/,' No.',16x,'E(mix)',11x,'Weights',/,1x,66('-'))")
+    do i = 1, NStat
+      write(*,"(i4,f22.9,5x,4(2x,f6.1,'%'))") i, EMIX(i), (DMAT(j,i)*DMAT(j,i)*1.0d2, j=1,min(NStat,4))
+      if(NStat > 4) write (*,"(30x,4(2x,f6.1,'%'))")      (DMAT(j,i)*DMAT(j,i)*1.0d2, j=5,NStat)
+    end do
+    write(*,"(1x,66('-'))")
+  end if
 
 !---------------------------------------------------------------------------------------------------------------------------------
 ! Compute rotation matrix, if necessary
@@ -195,40 +209,48 @@ Subroutine GenEou(iGOU,iFCH,NStat,natom,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,ctm
 !---------------------------------------------------------------------------------------------------------------------------------
 
   if(nder > 0) then
-    do i = 1, na3
-      do j = 1, NStat
-        GRDm(i) = GRDm(i) + DMAT(j,1)*DMAT(j,1)*GRDi(i,j)
+    if(NStat == 1) then
+      GRDm(:) = GRDi(:,1)
+    else
+      do i = 1, na3
+        do j = 1, NStat
+          GRDm(i) = GRDm(i) + DMAT(j,1)*DMAT(j,1)*GRDi(i,j)
+        end do
       end do
-    end do
+    end if
     if(lrot(1)) call rotvec(natom,-1,Rmat,GRDm,Scr1)
   end if
 
   if(nder > 1) then
-    ! d^T * H_m,n * d
-    do i = 1, ntt
-      do j = 1, NStat
-        FCMm(i) = FCMm(i) + DMAT(j,1)*DMAT(j,1)*FCMi(i,j)
-      end do
-    end do
-
-    ! + 2 d^T * H_m * D * q_n
-    ii = 0
-    Do nu = 1, na3
-      ! q --> Scr1
-      call qcalc(na3,NStat,nu,GRDi,DMAT,EMIX,Scr1,Scr2)
-      ! q' = D * q --> Scr2
-      call dgemm('N','N',NStat,1,NStat,1.0d0,DMAT,NStat,Scr1,NStat,0.0d0,Scr2,NStat)
-      ! (2 d) .* q' -- > Scr1
-      do i = 1, NStat
-        Scr1(i) = 2.0d0 * DMAT(i,1) * Scr2(i)
-      end do
-      Do mu = 1, nu
-        ii = ii + 1
-        do i = 1, NStat
-          FCMm(ii) = FCMm(ii) + Scr1(i) * GRDi(mu,i)
+    if(NStat == 1) then
+      FCMm(:) = FCMi(:,1)
+    else
+      ! d^T * H_m,n * d
+      do i = 1, ntt
+        do j = 1, NStat
+          FCMm(i) = FCMm(i) + DMAT(j,1)*DMAT(j,1)*FCMi(i,j)
         end do
+      end do
+
+      ! + 2 d^T * H_m * D * q_n
+      ii = 0
+      Do nu = 1, na3
+        ! q --> Scr1
+        call qcalc(na3,NStat,nu,GRDi,DMAT,EMIX,Scr1,Scr2)
+        ! q' = D * q --> Scr2
+        call dgemm('N','N',NStat,1,NStat,1.0d0,DMAT,NStat,Scr1,NStat,0.0d0,Scr2,NStat)
+        ! (2 d) .* q' -- > Scr1
+        do i = 1, NStat
+          Scr1(i) = 2.0d0 * DMAT(i,1) * Scr2(i)
+        end do
+        Do mu = 1, nu
+          ii = ii + 1
+          do i = 1, NStat
+            FCMm(ii) = FCMm(ii) + Scr1(i) * GRDi(mu,i)
+          end do
+        end Do
       end Do
-    end Do
+    end if
 
     if(lrot(1)) then
       call LT2Sqr(na3,FCMm,Scr1)
@@ -240,7 +262,11 @@ Subroutine GenEou(iGOU,iFCH,NStat,natom,nder,XYZG,ifchs,SO_chi,SO_chs,SO_dlt,ctm
 !---------------------------------------------------------------------------------------------------------------------------------
 ! Print Gaussian's *.EOu file
 !---------------------------------------------------------------------------------------------------------------------------------
-  call WrtEOU(iGOU,nder,na3,ntt,EMIX(1),GRDm,FCMm)
+  if(natom == natall) then
+    call WrtEOU(iGOU,nder,na3,ntt,EMIX(1),GRDm,FCMm)
+  else   ! ONIOM by g16.c
+    call WrtEOU_ONIOM(iGOU,natom,natall,Llist,nder,EMIX(1),GRDm,FCMm)
+  end if
 
   deallocate(XYZF, lrot, ENEi, GRDi, FCMi, HMAT, DMAT, EMIX, GRDm, FCMm, Rmat, Scr1, Scr2)
 
@@ -275,6 +301,68 @@ Subroutine qcalc(na3,nstat,ixyz,GRDi,DMAT,EMIX,Qvec,Scr1)
 
   Return
 End Subroutine qcalc
+
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+! Write Gaussian's *.EOu file for ONIOM job by G16.c
+!
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Subroutine WrtEOU_ONIOM(iGOU,natom,natall,Llist,nder,Energy,GRD,FCM)
+  Implicit Real*8(A-H,O-Z)
+  dimension :: Llist(natall), GRD(*), FCM(*)
+  allocatable   :: GRDall(:), FCMall(:)
+
+  na3 = natall*3
+  ntt = na3*(na3+1)/2
+
+  rewind(iGOU)
+  if(nder == 0) then
+    ! energy, dipole moment
+    write(iGOU,"(4d20.12)") Energy, (0.0d0, i=1,3)
+    ! gradients
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,na3)
+    ! polarizability (l.t. part)
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,6)
+    ! apt
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,3*na3)
+    ! hessian matrix (l.t. part)
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,ntt)
+
+  else if(nder == 1) then
+    allocate(GRDall(na3))
+    ! energy, dipole moment
+    write(iGOU,"(4d20.12)") Energy, (0.0d0, i=1,3)
+    ! gradients
+    call FillGRD(natom,natall,Llist,GRD,GRDall)
+    write(iGOU,"(3d20.12)") (GRDall(i), i=1,na3)
+    ! polarizability (l.t. part)
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,6)
+    ! apt
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,3*na3)
+    ! hessian matrix (l.t. part)
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,ntt)
+    deallocate(GRDall)
+
+  else if(nder == 2) then
+    allocate(GRDall(na3),FCMall(ntt))
+    ! energy, dipole moment
+    write(iGOU,"(4d20.12)") Energy, (0.0d0, i=1,3)
+    ! gradients
+    call FillGRD(natom,natall,Llist,GRD,GRDall)
+    write(iGOU,"(3d20.12)") (GRDall(i), i=1,na3)
+    ! polarizability (l.t. part)
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,6)
+    ! apt
+    write(iGOU,"(3d20.12)") (0.0d0, i=1,3*na3)
+    ! hessian matrix (l.t. part)
+    call FillFCM(natom,natall,Llist,FCM,FCMall)
+    write(iGOU,"(3d20.12)") (FCMall(i), i=1,ntt)
+    deallocate(GRDall,FCMall)
+
+  end if
+
+  Return
+End Subroutine WrtEOU_ONIOM
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !
@@ -326,6 +414,63 @@ Subroutine WrtEOU(iGOU,nder,na3,ntt,Energy,GRD,FCM)
 
   Return
 End Subroutine WrtEOU
+
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+! fill the force constant matrix
+!
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Subroutine FillFCM(n1,n2,Llist,f1,f2)
+  Implicit Real*8(A-H,O-Z)
+  dimension :: Llist(n2), f1(*), f2(*)
+  allocatable :: fm1(:,:,:,:), fm2(:,:,:,:)
+
+  allocate(fm1(3,n1,3,n1), fm2(3,n2,3,n2))
+
+  call LT2Sqr(n1*3,f1,fm1)
+
+  fm2 = 0.0d0
+
+  i1 = 0
+  do i2 = 1, n2
+    if(Llist(i2) == 0) cycle
+    i1 = i1 + 1
+
+    j1 = 0
+    do j2 = 1, n2
+      if(Llist(j2) == 0) cycle
+      j1 = j1 + 1
+      fm2(:,j2,:,i2) = fm1(:,j1,:,i1)
+    end do
+  end do
+
+  call Sqr2LT(n2*3,fm2,f2)
+
+  deallocate(fm1, fm2)
+
+  Return
+End Subroutine FillFCM
+
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+!
+! fill the gradient array
+!
+!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Subroutine FillGRD(n1,n2,Llist,g1,g2)
+  Implicit Real*8(A-H,O-Z)
+  dimension :: Llist(n2), g1(3,n1), g2(3,n2)
+
+  g2 = 0.0d0
+
+  i1 = 0
+  do i2 = 1, n2
+    if(Llist(i2) == 0) cycle
+    i1 = i1 + 1
+    g2(:,i2) = g1(:,i1)
+  end do
+
+  Return
+End Subroutine FillGRD
 
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 !
@@ -799,26 +944,28 @@ end subroutine WrtGjf
 ! read Cartesian coordinates (in a.u.) from Gaussian's *.EIn. Fixed for G16.c ONIOM calculation.
 !
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Subroutine RdEIn_XYZ(iGIN,natom,IZA,XYZ)
+Subroutine RdEIn_XYZ(iGIN,natom,natall,IZA,XYZ,Llist)
   Implicit Real*8(A-H,O-Z)
-  dimension :: IZA(natom), XYZ(3,natom)
+  dimension :: IZA(natom), XYZ(3,natom), Llist(natall)
   allocatable :: Scr(:)
 
   IZA = 0
   XYZ = 0.0d0
+  Llist = 0
 
   allocate(Scr(3))
 
   rewind(iGIN)
-  read(iGIN,*) natom1
+  read(iGIN,*)
   i1 = 0
-  do i = 1, natom1
+  do i = 1, natall
     read(iGIN,*,iostat=ist) iza1, Scr
     if(ist /= 0) call XError("Please check the Cartesian coordinates in *.EIn.")
     if(iza1 > 0) then
       i1 = i1 + 1
       IZA(i1) = iza1
       XYZ(:,i1) = Scr
+      Llist(i1) = 1
     end if
   end do
 
@@ -836,13 +983,13 @@ End Subroutine RdEIn_XYZ
 ! -GEN        Imode = 0 (default). Generate input files for states. Required options and files:
 !      -GIN   Gaussian's *.EIn file name
 !      -CTP   templet file name
-!      -NST   Number of states (NStat) to be mixed, which can be 2 (default), 3, ..., MaxStat
+!      -NST   Number of states (NStat) to be mixed, which can be 1, 2 (default), 3, ..., MaxStat
 !      -INi   Gaussian input file for states i, i=1,2,..
 !
 ! -MIX        Imode = 1. Compute energy, gradients, and/or hessians of the mixed-spin ground state.
 !      -GIN   Gaussian's *.EIn file name
 !      -GOU   Gaussian's *.EOu file name
-!      -NST   Number of states (NStat) to be mixed, which can be 2 (default), 3, ..., MaxStat
+!      -NST   Number of states (NStat) to be mixed, which can be 1, 2 (default), 3, ..., MaxStat
 !      -FCi   Gaussian fchk file for states i, i=1,2,..
 !      -CHI   Empirical SO constant (in cm^-1). Default: 400 cm^-1
 !      -CHS   Specify each SO constant separately (in cm^-1)
@@ -858,7 +1005,7 @@ subroutine RdArg(imode,iGIN,iGOU,iCTP,iINP,iFCH,MaxStat,NStat,ifchs,SO_chi,SO_ch
 
   imode = 0
   NStat = 2
-  SO_chi= 4.0d2
+  SO_chi= 4.0d2 / con_cm2au
   SO_dlt= 0.0d0
   ifchs = .false.
 
@@ -883,7 +1030,7 @@ subroutine RdArg(imode,iGIN,iGOU,iCTP,iINP,iFCH,MaxStat,NStat,ifchs,SO_chi,SO_ch
       if(iend > 0) then
         read(ctmp(istr:iend),*,iostat=ist) NStat
         if(ist /= 0) call XError("Cannot read NStat!")
-        if(NStat < 2 .or. NStat > MaxStat) call XError("NStat is out of range.")
+        if(NStat < 1 .or. NStat > MaxStat) call XError("NStat is out of range.")
       else
         call XError("NStat is not provided!")
       end if
@@ -1010,6 +1157,11 @@ subroutine RdArg(imode,iGIN,iGOU,iCTP,iINP,iFCH,MaxStat,NStat,ifchs,SO_chi,SO_ch
         call XError("A fchk file has not been provided by -FCi!")
       end if
     end do
+    if(NStat == 1) then
+      SO_chi= 0.0d0
+      SO_dlt= 0.0d0
+      ifchs = .false.
+    end if
   else
     inquire(unit=iGIN,opened=ifopen)
       if(.NOT.ifopen) call XError("-GIN is not defined for -GEN!")
@@ -1158,26 +1310,25 @@ end subroutine XError
 ! read the first line of Gaussian's *.EIn.
 !
 !%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-Subroutine RdEIn_Line1(iGIN,natom,nder)
+Subroutine RdEIn_Line1(iGIN,natom,natall,nder)
   Implicit Real*8(A-H,O-Z)
 
   rewind(iGIN)
 
-  natom=-1
+  natall=-1
   nder=-1
 
-  read(iGIN,*,iostat=ist) natom,nder
+  read(iGIN,*,iostat=ist) natall,nder
   if(ist /= 0) call XError("Please check the first line in *.EIn.")
-  if(natom < 1) call XError("Natom < 1.")
+  if(natall < 1) call XError("Natall < 1.")
   if(nder < 0 .or. nder > 2) call XError("Nder is out of range.")
 
   ! G16.c's ONIOM calculation also prints dummy atoms, which has to be fixed.
-  natom1 = 0
-  do i=1, natom
+  natom = 0
+  do i=1, natall
     read(iGIN,*) i1
-    if(i1 > 0) natom1 = natom1 + 1
+    if(i1 > 0) natom = natom + 1
   end do
-  natom = natom1
 
   Return
 End Subroutine RdEIn_Line1
