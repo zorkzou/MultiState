@@ -19,8 +19,8 @@ Please cite the following paper if you use this program.
 
 * L. Zhao and W. Zou, A general method for locating stationary points on the mixed-spin surface of spin-forbidden reaction with multiple spin states, J. Chem. Phys. 158, 224110 (2023). [doi](https://doi.org/10.1063/5.0151630)
 
-The related TSSM model can be found in the following papers.
+The closely related two-state spin-mixing model may be found in the following papers.
 
 * B. Yang, L. Gagliardi, and D. G. Truhlar, Transition states of spin-forbidden reactions, Phys. Chem. Chem. Phys. 20, 4129 (2018). [doi](https://doi.org/10.1063/5.0151630)
-* T. Takayanagi and T. Nakatomi, Automated reaction path searches for spinforbidden reactions, J. Comput. Chem. 39, 1319 (2018). [doi](https://doi.org/10.1002/jcc.25202)
+* T. Takayanagi and T. Nakatomi, Automated reaction path searches for spin-forbidden reactions, J. Comput. Chem. 39, 1319 (2018). [doi](https://doi.org/10.1002/jcc.25202)
 
